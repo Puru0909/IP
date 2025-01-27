@@ -7,8 +7,8 @@ pipeline = rs.pipeline()
 config = rs.config()
 
 # Enable color and depth streams
-config.enable_stream(rs.stream.color, 848, 480, rs.format.bgr8, 30)
-config.enable_stream(rs.stream.depth, 848, 480, rs.format.z16, 30)
+config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
+config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
 
 # Start the pipeline
 pipeline.start(config)
@@ -98,7 +98,7 @@ try:
                             cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
 
                 # Check if (x, y) is within bounds
-                if 0 <= x < 848 and 0 <= y < 480:
+                if 0 <= x < 640 and 0 <= y < 480:
                     # Calculate distance to the center of the circle
                     distance = depth_frame.get_distance(x, y)
                     if distance > 0:  # Check for valid depth data
