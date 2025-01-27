@@ -154,7 +154,6 @@ try:
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
 
-
 finally:
     # Stop streaming
     pipeline.stop()
