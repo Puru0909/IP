@@ -1,0 +1,13 @@
+train: ../train/images
+val: ../valid/images
+test: ../test/images
+
+nc: 1
+names: ['objects']
+
+roboflow:
+  workspace: roboflow-iqwyi
+  project: basketring_hoops
+  version: 2
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/roboflow-iqwyi/basketring_hoops/dataset/2
