@@ -7,8 +7,8 @@ pipeline = rs.pipeline()
 config = rs.config()
 
 # Enable color and depth streams
-config.enable_stream(rs.stream.color, 848, 480, rs.format.bgr8, 30)
-config.enable_stream(rs.stream.depth, 848, 480, rs.format.z16, 30)
+config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
+config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
 
 # Start the pipeline
 pipeline.start(config)
@@ -25,6 +25,10 @@ cv2.createTrackbar("Param1", "Basketball Detection", 200, 500, lambda x: None)
 cv2.createTrackbar("Param2", "Basketball Detection", 20, 100, lambda x: None)
 cv2.createTrackbar("Min Radius", "Basketball Detection", 10, 100, lambda x: None)
 cv2.createTrackbar("Max Radius", "Basketball Detection", 150, 500, lambda x: None)
+
+# Create trackbars for edge detection
+cv2.createTrackbar("Threshold1", "Basketball Detection", 150, 500, lambda x: None)
+cv2.createTrackbar("Threshold2", "Basketball Detection", 400, 500, lambda x: None)
 
 # Define the range for red color in HSV
 lower_red1 = np.array([0, 120, 70])    # Lower range for red
@@ -85,27 +89,63 @@ try:
         if circles is not None:
             detected_circles = np.uint16(np.around(circles))
             for (x, y, r) in detected_circles[0, :]:
-                # Draw a bounding box around the detected circle
-                cv2.rectangle(color_image, (x - r, y - r), (x + r, y + r), (0, 255, 0), 2)
-
-                # Draw the circle
+                # Draw circle
                 cv2.circle(color_image, (x, y), r, (0, 255, 0), 3)
-
-                # Draw the center of the circle
+                # Draw center
                 cv2.circle(color_image, (x, y), 2, (0, 255, 0), 3)
+                # Display radius and center coordinates
+                cv2.putText(color_image, f"Red Circle: ({x}, {y}) R: {r}", (x - 50, y - r - 10), 
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
 
                 # Check if (x, y) is within bounds
-                if 0 <= x < 848 and 0 <= y < 480:
+                if 0 <= x < 640 and 0 <= y < 480:
                     # Calculate distance to the center of the circle
                     distance = depth_frame.get_distance(x, y)
                     if distance > 0:  # Check for valid depth data
-                        # Display distance on the frame
                         cv2.putText(color_image, f"Distance: {distance:.2f} m", (x - 50, y + r + 20), 
                                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
                     else:
                         print(f"No valid depth data at ({x}, {y})")
                 else:
                     print(f"Invalid coordinates: ({x}, {y})")
+
+        # Apply contour detection on the original frame (for backboard detection)
+        gray_original = cv2.cvtColor(color_image, cv2.COLOR_BGR2GRAY)
+        blurred_original = cv2.GaussianBlur(gray_original, (9, 9), 2)
+        morphed_original = cv2.morphologyEx(blurred_original, cv2.MORPH_OPEN, kernel)
+        ret, binary = cv2.threshold(morphed_original, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        contours, _ = cv2.findContours(binary, mode=cv2.RETR_TREE, method=cv2.CHAIN_APPROX_SIMPLE)
+
+        # Loop through contours to find the backboard
+        for contour in contours:
+            # Approximate the contour to a polygon
+            epsilon = 0.02 * cv2.arcLength(contour, True)
+            approx = cv2.approxPolyDP(contour, epsilon, True)
+
+            # Check if the contour has 4 vertices (likely a rectangle)
+            if len(approx) == 4:
+                # Get the bounding box of the rectangle
+                x, y, w, h = cv2.boundingRect(approx)
+                # Filter out small bounding boxes (noise)
+                if w * h > 1000:  # Adjust this threshold as needed
+                    # Draw the bounding box
+                    cv2.rectangle(color_image, (x, y), (x + w, y + h), (255, 0, 0), 2)
+                    # Display the coordinates of the bounding box
+                    cv2.putText(color_image, f"Backboard: ({x}, {y}) to ({x + w}, {y + h})", (x, y - 10), 
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 0), 2)
+
+                    # Calculate distance to the center of the backboard
+                    center_x = x + w // 2
+                    center_y = y + h // 2
+                    if 0 <= center_x < 848 and 0 <= center_y < 480:
+                        distance = depth_frame.get_distance(center_x, center_y)
+                        if distance > 0:  # Check for valid depth data
+                            cv2.putText(color_image, f"Distance: {distance:.2f} m", (center_x - 50, center_y + 20), 
+                                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 0), 2)
+                        else:
+                            print(f"No valid depth data at ({center_x}, {center_y})")
+                    else:
+                        print(f"Invalid coordinates: ({center_x}, {center_y})")
 
         # Show the final output
         cv2.imshow('Basketball Detection', color_image)
